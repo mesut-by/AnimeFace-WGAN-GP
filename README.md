@@ -1,9 +1,9 @@
 
 ---
 
-# Anime Character Face Generation with WQGAN-GP(In Progress)
+# Anime Character Face Generation with WGAN-GP(In Progress)
 
-This project aims to generate anime character faces using the **Wasserstein Kantorovich Gradient Penalty (WQGAN-GP)** model. The dataset used in this project is the [Anime Face Dataset](https://www.kaggle.com/datasets/splcher/animefacedataset), which contains thousands of anime faces. This project involves building, training, and evaluating the model using **PyTorch** and has been tested on **Colab**.
+This project aims to generate anime character faces using the **Wasserstein Gradient Penalty (WGAN-GP)** model. The dataset used in this project is the [Anime Face Dataset](https://www.kaggle.com/datasets/splcher/animefacedataset), which contains thousands of anime faces. This project involves building, training, and evaluating the model using **PyTorch** and has been tested on **Colab**.
 
 ## Project Overview
 
