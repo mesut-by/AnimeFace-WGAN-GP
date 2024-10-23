@@ -68,31 +68,37 @@ The dataset used in this project is the **Anime Face Dataset**, available on Kag
 
 - To maintain consistency during training, images with a pixel range of 100x140 have been filtered and processed.
 
-- The images were resized and normalized to meet the input requirements of the WGAN-GP model. The images were converted to tensors and scaled to the [-1, 1] range to fit the `tanh` activation function.
+- The images were resized to meet the input requirements of the WGAN-GP model.
 
 ---
 
-## Model Architecture
+### Model Architecture
 
-### Generator
-
-The **Generator** network takes a random noise vector (latent space) and generates a 128x128 RGB image. The model uses transposed convolution layers to gradually upscale the noise into higher resolution images.
+#### Generator
+The **Generator** network takes a random noise vector (latent space) and generates a 128x128 RGB image. The model uses transposed convolution layers to gradually upscale the noise into higher resolution images. Additionally, **extraBlock** layers have been added to the generator to increase its capacity. These layers are strategically placed to allow the model to learn finer details.
 
 - **Input**: Random noise vector of size `(batch_size, z_dim, 1, 1)`
 - **Output**: Image of size `(batch_size, 3, 128, 128)`
 - **Activation Function**: `tanh` (outputs in the [-1, 1] range)
 
-### Critic (Discriminator)
+The added **extraBlock** layers are placed after two generator layers (at 8x8 and 16x16 resolutions) and perform the following operations:
+- **Conv2d**
+- **BatchNorm2d**
+- **ReLU**
 
-The **Critic** network takes an image as input and predicts how realistic it is. It uses convolution layers to reduce the image size to a single value representing the Wasserstein distance.
+These extra blocks contribute to the model’s ability to learn more complex features, leading to better overall performance.
+
+#### Critic (Discriminator)
+The **Critic** network takes an image as input and predicts how realistic it is. Convolution layers are used to reduce the image size down to a single scalar value representing realism. Additionally, **spectral normalization** has been applied to each Conv2d layer to ensure the model trains more stably.
 
 - **Input**: Image of size `(batch_size, 3, 128, 128)`
 - **Output**: Scalar value representing realism
 - **Activation Function**: `LeakyReLU`
 
-### Gradient Penalty
+Spectral normalization ensures that each layer remains Lipschitz continuous, which stabilizes the gradients during training.
 
-During training, **gradient penalty** is applied to the Critic model to maintain the Lipschitz constraint, helping to prevent issues like mode collapse.
+#### Gradient Penalty
+During training, **gradient penalty** is applied to the Critic model to enforce the Lipschitz constraint, helping prevent issues like mode collapse.
 
 ---
 
@@ -102,28 +108,50 @@ During training, **gradient penalty** is applied to the Critic model to maintain
 
 - **Learning Rate**: 
   - Generator: 2e-4
-  - Critic: 4e-4
+  - Critic: 5e-4
 - **Batch Size**: 128
+- **Image Size**: 128
 - **Latent Dimension (z_dim)**: 200
-- **Number of Epochs**: 150
+- **Number of Epochs**: 200
 - **Gradient Penalty Coefficient**: 10
 - **Critic Update Steps**: 5
+
+
+---
 
 ### Training Loop
 
 1. **Critic Training**: The Critic is updated multiple times for each generator step.
    - **Wasserstein Loss**: The difference between the Critic's predictions on real and fake images is calculated.
    - **Gradient Penalty**: A penalty is applied to the Critic's gradients to ensure stability.
+   
+2. **Generator Training**: The Generator tries to fool the Critic by maximizing the Critic's predictions on fake images. 
+   - After **6000 steps**, a noise injection technique called **noise_strength** is introduced. This injects random noise into the fake images to help the generator produce more realistic outputs. This is applied every 20 steps after 6000 steps, with a noise strength of **0.05**.
 
-2. **Generator Training**: The Generator tries to fool the Critic by maximizing the Critic's predictions on fake images.
+   ```python
+   if cur_step > 6000 and cur_step % 20 == 0:
+       noise_strength = 0.05
+       noise = torch.randn_like(fake) * noise_strength
+       fake = fake + noise
+   ```
 
-3. **Logging and Visualization**: Losses and generated images are displayed at each info_step step.
+3. **Logging and Visualization**: Losses and generated images are displayed at each `info_step` step for better tracking of the model's progress.
 
 ### Learning Rate Scheduler
 
-A StepLR scheduler is used for both the Generator and Critic. The learning rate is reduced at specific steps to provide a more stable training environment. In the early stages of training, where high loss values are expected, the StepLR scheduler is not activated to stabilize the environment. However, as training progresses and the model focuses on finer details, the StepLR is deactivated after a certain step to prevent the learning rate from decreasing too much.
+A **StepLR scheduler** is applied to both the Generator and Critic. The learning rate is carefully adjusted during training to create a more stable training process:
+- The StepLR is **not activated** for the first 3000 steps to allow for quicker stabilization in the early training phases when high loss values are expected.
+- After **3000 steps**, the StepLR starts reducing the learning rate in steps to refine the training.
+- The learning rate is **deactivated** after **15,000 steps** to prevent the learning rate from falling too low (close to 1e-6).
+
+```python
+gen_scheduler = torch.optim.lr_scheduler.StepLR(gen_opt, step_size=3000, gamma=0.6)
+crit_scheduler = torch.optim.lr_scheduler.StepLR(crit_opt, step_size=2500, gamma=0.7)
+```
 
 ---
+
+
 
 ## Results
 
@@ -140,12 +168,12 @@ torch.save({
     'epoch': epoch,
     'model_state_dict': gen.state_dict(),
     'optimizer_state_dict': gen_opt.state_dict(),
-}, f"{root_path}G-{name}.pkl")
+}, f"{root_path}gen_model.pth")
 ```
 
 To load a checkpoint:
 ```python
-checkpoint = torch.load(f"{root_path}G-{name}.pkl")
+checkpoint = torch.load(f"{root_path}gen_model.pth")
 gen.load_state_dict(checkpoint['model_state_dict'])
 gen_opt.load_state_dict(checkpoint['optimizer_state_dict'])
 ```
