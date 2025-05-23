@@ -1,3 +1,8 @@
+<p align="center">
+  <img src="https://github.com/mesut-by/AnimeFace-WGAN-GP/blob/main/test/last_faces.png?raw=true" width="30%" />
+  <img src="https://github.com/mesut-by/AnimeFace-WGAN-GP/blob/main/test/graph.png?raw=true" width="30%" />
+  <img src="https://github.com/mesut-by/AnimeFace-WGAN-GP/blob/main/test/last_faces2.png?raw=true" width="30%" />
+</p>
 
 ---
 
